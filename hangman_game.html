@@ -7,11 +7,27 @@
         #difficulty-select {
             margin: 30px 0;
         }
-        .difficulty-btn {
+        .btn, .difficulty-btn, #guess-btn {
             font-size: 18px;
-            padding: 10px 30px;
-            margin-right: 20px;
+            padding: 12px 36px;
+            margin: 10px 10px 10px 0;
+            border: none;
+            border-radius: 8px;
+            background: linear-gradient(90deg, #4facfe 0%, #00f2fe 100%);
+            color: #fff;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
             cursor: pointer;
+            transition: background 0.3s, transform 0.2s, box-shadow 0.2s;
+            outline: none;
+        }
+        .btn:hover, .difficulty-btn:hover, #guess-btn:hover {
+            background: linear-gradient(90deg, #43e97b 0%, #38f9d7 100%);
+            transform: translateY(-2px) scale(1.05);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.13);
+        }
+        .btn:active, .difficulty-btn:active, #guess-btn:active {
+            transform: scale(0.97);
+            box-shadow: 0 2px 6px rgba(0,0,0,0.15);
         }
         #game-area {
             display: none;
@@ -44,16 +60,16 @@
     <h1 id="title">Hangman！</h1>
     <div id="difficulty-select">
         <span id="difficulty-label">请选择难度：</span>
-        <button class="difficulty-btn" data-diff="1" id="easy-btn">简单</button>
-        <button class="difficulty-btn" data-diff="2" id="medium-btn">中等</button>
-        <button class="difficulty-btn" data-diff="3" id="hard-btn">困难</button>
+        <button class="difficulty-btn btn" data-diff="1" id="easy-btn">简单</button>
+        <button class="difficulty-btn btn" data-diff="2" id="medium-btn">中等</button>
+        <button class="difficulty-btn btn" data-diff="3" id="hard-btn">困难</button>
     </div>
     <div id="game-area">
         <canvas id="hangman-canvas" width="250" height="300"></canvas>
         <div id="guesses-label">剩余机会：<span id="guesses"></span></div>
         <div id="word-progress"></div>
         <input type="text" id="letter-input" maxlength="1" placeholder="输入一个字母">
-        <button id="guess-btn">猜！</button>
+        <button id="guess-btn" class="btn">猜！</button>
         <div id="message" style="margin-top:20px;color: red;"></div>
     </div>
     <script>
@@ -118,7 +134,6 @@
             document.getElementById('guess-btn').textContent = t.guessBtn;
             document.getElementById('message').textContent = "";
         }
-
         document.getElementById('language-select').addEventListener('change', function() {
             updateLanguage(this.value);
         });
@@ -129,7 +144,9 @@
         // 单词池
         var words = [
             "hello", "apple", "windows", "man", "woman",
-            "javascript", "python", "java", "c++", "xml", "css", "html"
+            "javascript", "python", "java", "c++", "xml", "css", "html",
+            "banana", "orange", "grape", "cherry", "lemon", "peach",
+            "computer", "keyboard", "mouse", "monitor", "printer",
         ];
         var word, answerArray, remainingLetters, maxGuesses, guessesLeft;
         var gameOver = false;
@@ -248,7 +265,6 @@
             drawLeftLeg();
             drawRightLeg();
         }
-
         document.querySelectorAll('.difficulty-btn').forEach(function(btn){
             btn.onclick = function(){
                 var diff = this.getAttribute('data-diff');
