@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Hangman!</title>
+    <style>
+        #difficulty-select {
+            margin: 30px 0;
+        }
+        .difficulty-btn {
+            font-size: 18px;
+            padding: 10px 30px;
+            margin-right: 20px;
+            cursor: pointer;
+        }
+        #game-area {
+            display: none;
+        }
+        #word-progress {
+            font-size: 30px;
+            letter-spacing: 10px;
+            margin: 20px 0;
+        }
+        #hangman-canvas {
+            border: 1px solid #ccc;
+            margin: 20px 0;
+            display: block;
+            background: #f8f8f8;
+        }
+        #lang-select {
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div id="lang-select">
+        <label for="language-select">选择语言 / Language / 言語を選択：</label>
+        <select id="language-select">
+            <option value="zh">中文</option>
+            <option value="en">English</option>
+            <option value="ja">日本語</option>
+        </select>
+    </div>
+    <h1 id="title">Hangman！</h1>
+    <div id="difficulty-select">
+        <span id="difficulty-label">请选择难度：</span>
+        <button class="difficulty-btn" data-diff="1" id="easy-btn">简单</button>
+        <button class="difficulty-btn" data-diff="2" id="medium-btn">中等</button>
+        <button class="difficulty-btn" data-diff="3" id="hard-btn">困难</button>
+    </div>
+    <div id="game-area">
+        <canvas id="hangman-canvas" width="250" height="300"></canvas>
+        <div id="guesses-label">剩余机会：<span id="guesses"></span></div>
+        <div id="word-progress"></div>
+        <input type="text" id="letter-input" maxlength="1" placeholder="输入一个字母">
+        <button id="guess-btn">猜！</button>
+        <div id="message" style="margin-top:20px;color: red;"></div>
+    </div>
+    <script>
+        // 多语言文本
+        const translations = {
+            en: {
+                title: "Hangman!",
+                difficultyLabel: "Select difficulty:",
+                easy: "Easy",
+                medium: "Medium",
+                hard: "Hard",
+                guessesLabel: "Guesses left:",
+                inputPlaceholder: "Enter a letter",
+                guessBtn: "Guess!",
+                msgSingleLetter: "Please enter a single letter.",
+                msgNoLetter: "No such letter!",
+                msgWin: "Congratulations! The answer is: ",
+                msgLose: "No more guesses! The correct answer is: "
+            },
+            zh: {
+                title: "Hangman！",
+                difficultyLabel: "请选择难度：",
+                easy: "简单",
+                medium: "中等",
+                hard: "困难",
+                guessesLabel: "剩余机会：",
+                inputPlaceholder: "输入一个字母",
+                guessBtn: "猜！",
+                msgSingleLetter: "请输入单个英文字母。",
+                msgNoLetter: "没有这个字母！",
+                msgWin: "恭喜你！答案是：",
+                msgLose: "机会用完了！正确答案是："
+            },
+            ja: {
+                title: "ハングマン！",
+                difficultyLabel: "難易度を選択してください：",
+                easy: "簡単",
+                medium: "普通",
+                hard: "難しい",
+                guessesLabel: "残りのチャンス：",
+                inputPlaceholder: "1文字を入力してください",
+                guessBtn: "推測！",
+                msgSingleLetter: "1文字の英字を入力してください。",
+                msgNoLetter: "その文字はありません！",
+                msgWin: "おめでとうございます！答えは：",
+                msgLose: "チャンスがなくなりました！正解は："
+            }
+        };
+
+        let currentLang = 'zh'; // 默认中文
+
+        function updateLanguage(lang) {
+            currentLang = lang;
+            const t = translations[lang];
+            document.getElementById('title').textContent = t.title;
+            document.getElementById('difficulty-label').textContent = t.difficultyLabel;
+            document.getElementById('easy-btn').textContent = t.easy;
+            document.getElementById('medium-btn').textContent = t.medium;
+            document.getElementById('hard-btn').textContent = t.hard;
+            document.getElementById('guesses-label').childNodes[0].nodeValue = t.guessesLabel;
+            document.getElementById('letter-input').placeholder = t.inputPlaceholder;
+            document.getElementById('guess-btn').textContent = t.guessBtn;
+            document.getElementById('message').textContent = "";
+        }
+
+        document.getElementById('language-select').addEventListener('change', function() {
+            updateLanguage(this.value);
+        });
+
+        // 初始化语言
+        updateLanguage(currentLang);
+
+        // 单词池
+        var words = [
+            "hello", "apple", "windows", "man", "woman",
+            "javascript", "python", "java", "c++", "xml", "css", "html"
+        ];
+        var word, answerArray, remainingLetters, maxGuesses, guessesLeft;
+        var gameOver = false;
+        var canvas, ctx;
+        var drawSteps = [];
+        var currentStep = 0;
+
+        function drawGallows() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.beginPath();
+            ctx.moveTo(50, 280);
+            ctx.lineTo(200, 280);
+            ctx.moveTo(125, 280);
+            ctx.lineTo(125, 50);
+            ctx.lineTo(200, 50);
+            ctx.lineTo(200, 80);
+            ctx.strokeStyle = '#663300';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+        }
+        function drawHead() {
+            ctx.beginPath();
+            ctx.arc(200, 110, 30, 0, Math.PI * 2);
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        }
+        function drawBody() {
+            ctx.beginPath();
+            ctx.moveTo(200, 140);
+            ctx.lineTo(200, 210);
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        }
+        function drawLeftArm() {
+            ctx.beginPath();
+            ctx.moveTo(200, 160);
+            ctx.lineTo(170, 190);
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        }
+        function drawRightArm() {
+            ctx.beginPath();
+            ctx.moveTo(200, 160);
+            ctx.lineTo(230, 190);
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        }
+        function drawLeftLeg() {
+            ctx.beginPath();
+            ctx.moveTo(200, 210);
+            ctx.lineTo(170, 250);
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        }
+        function drawRightLeg() {
+            ctx.beginPath();
+            ctx.moveTo(200, 210);
+            ctx.lineTo(230, 250);
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        }
+        function drawFace1() {
+            ctx.beginPath();
+            ctx.arc(190, 105, 4, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+        function drawFace2() {
+            ctx.beginPath();
+            ctx.arc(210, 105, 4, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.arc(200, 120, 8, 0, Math.PI);
+            ctx.stroke();
+        }
+        function drawFace() {
+            ctx.beginPath();
+            ctx.arc(190, 105, 4, 0, Math.PI * 2);
+            ctx.arc(210, 105, 4, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.arc(200, 120, 8, 0, Math.PI);
+            ctx.stroke();
+        }
+        function drawHat() {
+            ctx.beginPath();
+            ctx.moveTo(185, 85);
+            ctx.lineTo(215, 85);
+            ctx.lineTo(215, 75);
+            ctx.lineTo(185, 75);
+            ctx.closePath();
+            ctx.strokeStyle = '#222';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            ctx.fillStyle = '#444';
+            ctx.fill();
+        }
+        function drawScarf() {
+            ctx.beginPath();
+            ctx.moveTo(200, 140);
+            ctx.lineTo(200, 150);
+            ctx.strokeStyle = 'red';
+            ctx.lineWidth = 4;
+            ctx.stroke();
+        }
+        function drawArms() {
+            drawLeftArm();
+            drawRightArm();
+        }
+        function drawLegs() {
+            drawLeftLeg();
+            drawRightLeg();
+        }
+
+        document.querySelectorAll('.difficulty-btn').forEach(function(btn){
+            btn.onclick = function(){
+                var diff = this.getAttribute('data-diff');
+                if (diff === "1") {
+                    maxGuesses = 10;
+                    drawSteps = [drawHead, drawBody, drawLeftArm, drawRightArm, 
+                                drawLeftLeg, drawRightLeg, drawFace1, drawFace2, 
+                                drawHat, drawScarf];
+                } else if (diff === "2") {
+                    maxGuesses = 8;
+                    drawSteps = [drawHead, drawBody, drawLeftArm, drawRightArm,
+                                drawLeftLeg, drawRightLeg, drawFace, drawHat];
+                } else if (diff === "3") {
+                    maxGuesses = 6;
+                    drawSteps = [drawHead, drawBody, drawArms, drawLegs, drawFace, drawHat];
+                }
+                startGame();
+            };
+        });
+
+        function startGame() {
+            document.getElementById('difficulty-select').style.display = "none";
+            document.getElementById('game-area').style.display = "block";
+            word = words[Math.floor(Math.random() * words.length)];
+            answerArray = [];
+            for (var i = 0; i < word.length; i++) {
+                answerArray[i] = "_";
+            }
+            remainingLetters = word.length;
+            guessesLeft = maxGuesses;
+            gameOver = false;
+            document.getElementById('guesses').textContent = guessesLeft;
+            document.getElementById('word-progress').textContent = answerArray.join(" ");
+            document.getElementById('message').textContent = "";
+            document.getElementById('letter-input').value = "";
+            canvas = document.getElementById('hangman-canvas');
+            ctx = canvas.getContext('2d');
+            currentStep = 0;
+            drawGallows();
+        }
+
+        document.getElementById('guess-btn').onclick = function(){
+            if(gameOver) return;
+            var input = document.getElementById('letter-input');
+            var guess = input.value.trim().toLowerCase();
+            input.value = "";
+            document.getElementById('message').textContent = "";
+
+            if (!guess || guess.length !== 1 || !/[a-z]/.test(guess)) {
+                document.getElementById('message').textContent = translations[currentLang].msgSingleLetter;
+                return;
+            }
+            var correctGuess = false;
+            for (var j = 0; j < word.length; j++) {
+                if (word[j] === guess && answerArray[j] === "_") {
+                    answerArray[j] = guess;
+                    remainingLetters--;
+                    correctGuess = true;
+                }
+            }
+            if (!correctGuess) {
+                guessesLeft--;
+                if(currentStep < drawSteps.length) {
+                    drawSteps[currentStep]();
+                    currentStep++;
+                }
+                document.getElementById('message').textContent = translations[currentLang].msgNoLetter;
+            }
+            document.getElementById('guesses').textContent = guessesLeft;
+            document.getElementById('word-progress').textContent = answerArray.join(" ");
+            if (remainingLetters === 0) {
+                document.getElementById('message').textContent = translations[currentLang].msgWin + word;
+                gameOver = true;
+            } else if (guessesLeft <= 0) {
+                document.getElementById('message').textContent = translations[currentLang].msgLose + word;
+                gameOver = true;
+            }
+        };
+
+        // 支持回车键提交
+        document.getElementById('letter-input').addEventListener('keyup', function(e){
+            if(e.key === "Enter"){
+                document.getElementById('guess-btn').click();
+            }
+        });
+    </script>
+</body>
+</html>
